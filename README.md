@@ -19,7 +19,19 @@ Your repository must have a `skin.json` at its root. If your readme is not `READ
 { "owner": "YourUsername", "repo": "YourRepository", "readme": "docs/millennium.md" }
 ```
 
-A check runs on your pull request to confirm every listed repository has a `skin.json`. Once the pull request is merged, your theme appears on the site automatically.
+A check runs on your pull request to validate your `skin.json`. For a new theme it must have:
+
+- a `github` block whose `owner` and `repo_name` match the entry you added
+- a `header_image` and a `splash_image`, each an `https` URL that loads an image
+
+```json
+"github": {
+    "owner": "YourUsername",
+    "repo_name": "YourRepository"
+}
+```
+
+Once the pull request is merged, your theme appears on the site automatically.
 
 ## Updating Your Theme[^2]
 

@@ -11,7 +11,7 @@ permissions:
 jobs:
     validate:
         runs-on: ubuntu-latest
-        timeout-minutes: 10
+        timeout-minutes: 15
 
         steps:
             - uses: actions/checkout@v4
@@ -19,23 +19,30 @@ jobs:
             - name: Validate metadata.json
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  BASE_REF: ${{ github.base_ref }}
               run: |
                   jq -e '.themes | type == "array" and length > 0' metadata.json > /dev/null
                   jq -e 'all(.themes[]; (.owner | type == "string") and (.repo | type == "string"))' metadata.json > /dev/null
 
                   duplicates=$(jq -r '[.themes[] | "\(.owner)/\(.repo)" | ascii_downcase] | group_by(.) | map(select(length > 1) | .[0]) | .[]' metadata.json)
                   if [ -n "$duplicates" ]; then
-                    echo "Duplicate entries:"
-                    echo "$duplicates"
+                    echo "::error::Duplicate entries: $duplicates"
                     exit 1
                   fi
 
+                  git fetch --depth=1 origin "$BASE_REF"
+                  git show "origin/$BASE_REF:metadata.json" | jq -r '.themes[] | "\(.owner)/\(.repo)" | ascii_downcase' | sort > "$RUNNER_TEMP/existing.txt"
+
                   failed=0
                   while read -r entry; do
-                    if ! gh api "repos/$entry/contents/skin.json" > /dev/null 2>&1; then
-                      echo "::error::$entry has no skin.json at its root"
-                      failed=1
+                    if grep -qxF "${entry,,}" "$RUNNER_TEMP/existing.txt"; then
+                      mode=basic
+                    else
+                      mode=strict
                     fi
+
+                    echo "Checking $entry ($mode)"
+                    .github/scripts/check-skin.sh "$entry" "$mode" || failed=1
                   done < <(jq -r '.themes[] | select(.disabled != true) | "\(.owner)/\(.repo)"' metadata.json)
 
                   exit $failed
